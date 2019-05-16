@@ -1,3 +1,4 @@
+import os
 import random
 import numpy as np
 import torch
@@ -5,7 +6,7 @@ import torch.utils.data
 
 import layers
 from utils import load_wav_to_torch, load_filepaths_and_text
-from text import text_to_sequence
+from text import text_to_sequence, cmudict
 
 
 class TextMelLoader(torch.utils.data.Dataset):
@@ -26,6 +27,16 @@ class TextMelLoader(torch.utils.data.Dataset):
             hparams.mel_fmax)
         random.seed(1234)
         random.shuffle(self.audiopaths_and_text)
+
+        # init cmudict
+        self.p_cmudict = hparams.p_cmudict
+        if hparams.use_cmudict:
+            if not os.path.isfile(hparams.cmudict_path):
+                raise Exception('If use_cmudict=True, you must download' +
+                'http://svn.code.sf.net/p/cmusphinx/code/trunk/cmudict/cmudict-0.7b to %s'  % hparams.cmudict_path)
+            self._cmudict = cmudict.CMUDict(hparams.cmudict_path, keep_ambiguous=False)
+        else:
+            self._cmudict = None
 
     def get_mel_text_pair(self, audiopath_and_text):
         # separate filename and text
@@ -54,8 +65,14 @@ class TextMelLoader(torch.utils.data.Dataset):
         return melspec
 
     def get_text(self, text):
+        if self._cmudict and random.random() < self.p_cmudict:
+            text = ' '.join([self._maybe_get_arpabet(word) for word in text.split(' ')])
         text_norm = torch.IntTensor(text_to_sequence(text, self.text_cleaners))
         return text_norm
+
+    def _maybe_get_arpabet(self, word):
+        arpabet = self._cmudict.lookup(word)
+        return '{%s}' % arpabet[0] if arpabet is not None and random.random() < 0.5 else word
 
     def __getitem__(self, index):
         return self.get_mel_text_pair(self.audiopaths_and_text[index])
