@@ -30,7 +30,7 @@ def create_hparams(hparams_string=None, verbose=False):
         text_cleaners=['english_cleaners'],
         p_cmudict=0.5,
         use_cmudict=False,
-        cmudict_path="filelists/cmudict-0.7b"
+        cmudict_path="filelists/cmudict-0.7b",
 
         ################################
         # Audio Parameters             #
